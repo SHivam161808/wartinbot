@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>WartinLabs — AI Voice Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/@daily-co/daily-js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#06070e;--s1:#0c0e1a;--s2:#111427;--s3:#181c32;
+  --border:rgba(255,255,255,.055);
+  --a1:#5b7fff;--a2:#8b5cf6;--a3:#06b6d4;
+  --glow:rgba(91,127,255,.28);
+  --ok:#10b981;--warn:#f59e0b;--err:#ef4444;
+  --tx:#e2e8f0;--tm:#94a3b8;--td:#64748b;
+  --r:14px;--ff-h:'Syne',sans-serif;--ff-b:'Inter',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--ff-b);overflow:hidden}
+
+.bg{position:fixed;inset:0;z-index:0;pointer-events:none}
+.bg-grid{position:absolute;inset:0;
+  background-image:linear-gradient(rgba(91,127,255,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(91,127,255,.025) 1px,transparent 1px);
+  background-size:56px 56px}
+.bg-blob1{position:absolute;top:-20%;left:-10%;width:70%;aspect-ratio:1;
+  background:radial-gradient(ellipse,rgba(91,127,255,.09) 0%,transparent 70%);filter:blur(60px)}
+.bg-blob2{position:absolute;bottom:-10%;right:-10%;width:55%;aspect-ratio:1;
+  background:radial-gradient(ellipse,rgba(139,92,246,.07) 0%,transparent 70%);filter:blur(50px)}
+
+.app{position:relative;z-index:1;height:100vh;
+     display:grid;grid-template-columns:320px 1fr;grid-template-rows:58px 1fr}
+
+header{grid-column:1/-1;display:flex;align-items:center;gap:14px;padding:0 24px;
+  background:rgba(12,14,26,.75);backdrop-filter:blur(18px);
+  border-bottom:1px solid var(--border)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-mark{width:30px;height:30px;border-radius:8px;
+  background:linear-gradient(135deg,var(--a1),var(--a2));
+  display:flex;align-items:center;justify-content:center;font-size:14px}
+.logo-name{font-family:var(--ff-h);font-size:17px;font-weight:800;letter-spacing:.3px}
+.logo-name em{color:var(--a1);font-style:normal}
+.logo-tag{font-size:11px;color:var(--td);margin-left:4px;
+  padding:2px 8px;border:1px solid var(--border);border-radius:20px}
+.hdr-pill{margin-left:auto;display:flex;align-items:center;gap:7px;
+  background:var(--s2);border:1px solid var(--border);border-radius:20px;
+  padding:5px 14px;font-size:12px;color:var(--tm)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--td);transition:background .3s,box-shadow .3s}
+.dot.live{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.dot.think{background:var(--warn);box-shadow:0 0 8px var(--warn);animation:blink 1s infinite}
+
+.left{border-right:1px solid var(--border);background:var(--s1);
+  display:flex;flex-direction:column;overflow:hidden}
+.orb-area{display:flex;flex-direction:column;align-items:center;padding:28px 20px 20px}
+.orb-wrap{position:relative;width:148px;height:148px;
+  display:flex;align-items:center;justify-content:center}
+.ring{position:absolute;border-radius:50%;border:1px solid transparent}
+.ring1{inset:0;border-color:rgba(91,127,255,.18)}
+.ring2{inset:-12px;border-color:rgba(91,127,255,.09)}
+.ring3{inset:-26px;border-color:rgba(91,127,255,.04)}
+.orb{width:108px;height:108px;border-radius:50%;cursor:default;
+  background:radial-gradient(circle at 38% 32%,rgba(139,92,246,.85) 0%,rgba(91,127,255,.75) 45%,rgba(8,12,40,.95) 100%);
+  box-shadow:0 0 28px rgba(91,127,255,.22),0 0 60px rgba(91,127,255,.08);
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .3s,box-shadow .3s}
+.orb svg{width:38px;height:38px;opacity:.88}
+.orb.talking{animation:orb-pulse .7s ease-in-out infinite alternate;
+  box-shadow:0 0 48px rgba(91,127,255,.55),0 0 90px rgba(91,127,255,.18)}
+.orb.hearing{
+  background:radial-gradient(circle at 38% 32%,rgba(16,185,129,.7) 0%,rgba(6,182,212,.7) 45%,rgba(8,12,40,.95) 100%);
+  box-shadow:0 0 42px rgba(16,185,129,.4),0 0 80px rgba(16,185,129,.12);
+  animation:orb-hear 2s ease-in-out infinite}
+.waves{display:flex;align-items:center;gap:3px;height:24px;
+  margin-top:10px;opacity:0;transition:opacity .3s}
+.waves.on{opacity:1}
+.bar{width:3px;border-radius:3px;background:var(--a1);height:4px}
+.bar:nth-child(1){animation:wv .40s ease-in-out infinite alternate}
+.bar:nth-child(2){animation:wv .50s .05s ease-in-out infinite alternate}
+.bar:nth-child(3){animation:wv .36s .10s ease-in-out infinite alternate}
+.bar:nth-child(4){animation:wv .46s .15s ease-in-out infinite alternate}
+.bar:nth-child(5){animation:wv .52s .08s ease-in-out infinite alternate}
+.bar:nth-child(6){animation:wv .42s .12s ease-in-out infinite alternate}
+.bar:nth-child(7){animation:wv .38s .03s ease-in-out infinite alternate}
+.orb-name{margin-top:14px;font-family:var(--ff-h);font-size:22px;font-weight:800;letter-spacing:.5px}
+.orb-state{margin-top:4px;font-size:12px;color:var(--td);text-align:center;min-height:18px;transition:color .3s}
+
+/* volume meter */
+.vol-wrap{width:80%;margin-top:10px;height:4px;background:var(--s3);border-radius:4px;overflow:hidden}
+.vol-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--ok),var(--a1));border-radius:4px;transition:width .1s}
+
+.sess-strip{margin:0 16px 12px;padding:9px 14px;border-radius:10px;
+  background:var(--s2);border:1px solid var(--border);font-size:11px;color:var(--td);display:none}
+.sess-strip.on{display:block}
+.sess-strip strong{color:var(--tm)}
+
+.controls{margin-top:auto;padding:16px}
+.btn-main{width:100%;padding:13px;border:none;border-radius:12px;cursor:pointer;
+  background:linear-gradient(135deg,var(--a1),var(--a2));color:#fff;
+  font-family:var(--ff-h);font-size:15px;font-weight:700;letter-spacing:.4px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 4px 20px rgba(91,127,255,.35);transition:transform .15s,box-shadow .15s,opacity .2s}
+.btn-main:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 28px rgba(91,127,255,.5)}
+.btn-main:disabled{opacity:.45;cursor:not-allowed}
+.btn-main.stop{background:linear-gradient(135deg,#dc2626,#b91c1c);box-shadow:0 4px 20px rgba(220,38,38,.35)}
+.btn-mute{width:100%;margin-top:10px;padding:11px;border-radius:10px;cursor:pointer;
+  background:transparent;border:1px solid var(--border);color:var(--tm);
+  font-family:var(--ff-b);font-size:13px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:border-color .2s,color .2s}
+.btn-mute:hover{border-color:rgba(91,127,255,.4);color:var(--tx)}
+.btn-mute.muted{border-color:var(--warn);color:var(--warn)}
+.btn-mute:disabled{opacity:.4;cursor:not-allowed}
+
+.right{display:flex;flex-direction:column;background:var(--bg);overflow:hidden}
+.chat-hdr{padding:14px 24px 12px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between}
+.chat-hdr h2{font-family:var(--ff-h);font-size:13px;font-weight:700;
+  color:var(--td);letter-spacing:.6px;text-transform:uppercase}
+.chat-hdr small{font-size:11px;color:var(--td);display:block;margin-top:2px}
+.btn-clear{padding:5px 12px;border-radius:7px;border:1px solid var(--border);
+  background:none;color:var(--td);font-size:12px;cursor:pointer;transition:border-color .2s,color .2s}
+.btn-clear:hover{border-color:rgba(91,127,255,.4);color:var(--tm)}
+
+.transcript{flex:1;overflow-y:auto;padding:20px 24px;
+  display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth}
+.transcript::-webkit-scrollbar{width:4px}
+.transcript::-webkit-scrollbar-track{background:transparent}
+.transcript::-webkit-scrollbar-thumb{background:rgba(255,255,255,.06);border-radius:4px}
+
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:14px;text-align:center;padding:40px;color:var(--td)}
+.empty-icon{font-size:52px;opacity:.3}
+.empty h3{font-family:var(--ff-h);font-size:18px;color:var(--tm)}
+.empty p{font-size:13px;max-width:280px;line-height:1.7}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:8px}
+.chip{padding:5px 13px;border:1px solid var(--border);border-radius:20px;
+  font-size:12px;color:var(--td);background:var(--s1)}
+
+.msg{display:flex;gap:11px;max-width:80%;animation:msgIn .3s cubic-bezier(.16,1,.3,1)}
+.msg.bot{align-self:flex-start}
+.msg.user{align-self:flex-end;flex-direction:row-reverse}
+.avatar{width:32px;height:32px;border-radius:9px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:14px}
+.msg.bot .avatar{background:linear-gradient(135deg,var(--a1),var(--a2))}
+.msg.user .avatar{background:var(--s2);border:1px solid var(--border)}
+.msg-body{display:flex;flex-direction:column;gap:3px}
+.msg-role{font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--td)}
+.msg.user .msg-role{text-align:right}
+.bubble{padding:11px 15px;border-radius:13px;font-size:14px;line-height:1.65}
+.msg.bot .bubble{background:var(--s1);border:1px solid var(--border);border-top-left-radius:3px;color:var(--tx)}
+.msg.user .bubble{background:linear-gradient(135deg,rgba(91,127,255,.18),rgba(139,92,246,.18));
+  border:1px solid rgba(91,127,255,.18);border-top-right-radius:3px;color:var(--tx)}
+.msg-time{font-size:10px;color:var(--td)}
+.msg.user .msg-time{text-align:right}
+
+.typing{display:none;align-items:center;gap:10px;
+  padding:12px 24px;border-top:1px solid var(--border)}
+.typing.on{display:flex}
+.tdots{display:flex;gap:4px}
+.tdots span{width:6px;height:6px;border-radius:50%;background:var(--a1);animation:td 1.2s ease-in-out infinite}
+.tdots span:nth-child(2){animation-delay:.2s}
+.tdots span:nth-child(3){animation-delay:.4s}
+.tlabel{font-size:12px;color:var(--td)}
+
+.toast{position:fixed;bottom:24px;right:24px;z-index:100;
+  background:var(--s2);border:1px solid rgba(16,185,129,.3);border-radius:13px;
+  padding:15px 18px;display:flex;align-items:center;gap:12px;
+  box-shadow:0 8px 32px rgba(0,0,0,.4);
+  transform:translateY(80px);opacity:0;transition:transform .4s cubic-bezier(.16,1,.3,1),opacity .4s;
+  pointer-events:none}
+.toast.show{transform:translateY(0);opacity:1}
+.toast-ico{font-size:20px}
+.toast-tx strong{display:block;color:var(--ok);font-size:13px;margin-bottom:2px}
+.toast-tx span{color:var(--td);font-size:11px}
+
+.overlay{position:fixed;inset:0;z-index:200;
+  background:rgba(6,7,14,.8);backdrop-filter:blur(10px);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .3s}
+.overlay.on{opacity:1;pointer-events:all}
+.overlay-card{background:var(--s1);border:1px solid var(--border);border-radius:18px;
+  padding:36px 52px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:16px}
+.spinner{width:44px;height:44px;border:3px solid var(--border);
+  border-top-color:var(--a1);border-radius:50%;animation:spin .8s linear infinite}
+.overlay-card h3{font-family:var(--ff-h);font-size:18px}
+.overlay-card p{font-size:13px;color:var(--tm)}
+
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes orb-pulse{from{transform:scale(1)}to{transform:scale(1.07)}}
+@keyframes orb-hear{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+@keyframes wv{from{height:4px}to{height:20px}}
+@keyframes msgIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes td{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div class="bg">
+  <div class="bg-grid"></div>
+  <div class="bg-blob1"></div>
+  <div class="bg-blob2"></div>
+</div>
+
+<!-- HIDDEN AUDIO OUTPUT – Daily bot audio plays here -->
+<audio id="bot-audio" autoplay playsinline style="display:none"></audio>
+
+<div class="app">
+  <header>
+    <div class="logo">
+      <div class="logo-mark">🤖</div>
+      <span class="logo-name">Wartin<em>Labs</em></span>
+      <span class="logo-tag">Voice AI</span>
+    </div>
+    <div class="hdr-pill">
+      <div class="dot" id="dot"></div>
+      <span id="hdr-status">Ready</span>
+    </div>
+  </header>
+
+  <div class="left">
+    <div class="orb-area">
+      <div class="orb-wrap">
+        <div class="ring ring3"></div>
+        <div class="ring ring2"></div>
+        <div class="ring ring1"></div>
+        <div class="orb" id="orb">
+          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="15" y="6" width="10" height="17" rx="5" fill="white" fill-opacity=".85"/>
+            <path d="M9 20c0 6.075 4.925 11 11 11s11-4.925 11-11"
+                  stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <line x1="20" y1="31" x2="20" y2="37" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <line x1="14" y1="37" x2="26" y2="37" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+      <div class="waves" id="waves">
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        <div class="bar"></div>
+      </div>
+      <div class="orb-name">Aria</div>
+      <div class="orb-state" id="orb-state">WartinLabs AI Assistant</div>
+      <div class="vol-wrap"><div class="vol-bar" id="vol-bar"></div></div>
+    </div>
+
+    <div class="sess-strip" id="sess-strip">
+      <strong>Session ID</strong><br>
+      <span id="sess-id">—</span>
+    </div>
+
+    <div class="controls">
+      <button class="btn-main" id="btn-main" onclick="toggleSession()">
+        <span>🎙</span> Start Voice Chat
+      </button>
+      <button class="btn-mute" id="btn-mute" onclick="toggleMute()" disabled>
+        <span id="mute-icon">🎤</span>
+        <span id="mute-label">Mute Microphone</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="chat-hdr">
+      <div>
+        <h2>Live Conversation</h2>
+        <small>Full voice-to-text transparency</small>
+      </div>
+      <button class="btn-clear" onclick="clearChat()">Clear</button>
+    </div>
+    <div class="transcript" id="transcript">
+      <div class="empty" id="empty">
+        <div class="empty-icon">💬</div>
+        <h3>Ready to Talk</h3>
+        <p>Click <strong>Start Voice Chat</strong> and speak with Aria. Everything you say and hear appears here.</p>
+        <div class="chips">
+          <span class="chip">🤖 AI capabilities</span>
+          <span class="chip">💡 Our services</span>
+          <span class="chip">📱 Mobile apps</span>
+          <span class="chip">💰 Pricing</span>
+          <span class="chip">📞 Book a call</span>
+          <span class="chip">🏥 Healthcare AI</span>
+        </div>
+      </div>
+    </div>
+    <div class="typing" id="typing">
+      <div class="tdots"><span></span><span></span><span></span></div>
+      <span class="tlabel">Aria is thinking…</span>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <div class="toast-ico">✅</div>
+  <div class="toast-tx">
+    <strong>Lead Captured!</strong>
+    <span>Details sent to WartinLabs team</span>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="overlay-card">
+    <div class="spinner"></div>
+    <h3>Connecting…</h3>
+    <p>Setting up your session with Aria</p>
+  </div>
+</div>
+
+<script>
+// ─── Config ────────────────────────────────────────────────
+const API = window.location.origin;
+const WSS = API.replace(/^http/, 'ws');
+
+// ─── State ─────────────────────────────────────────────────
+let call      = null;
+let ws        = null;
+let sessionId = null;
+let connected = false;
+let muted     = false;
+let volTimer  = null;
+let audioCtx  = null;
+let analyser  = null;
+
+// ─── DOM ───────────────────────────────────────────────────
+const $orb      = document.getElementById('orb');
+const $waves    = document.getElementById('waves');
+const $orbState = document.getElementById('orb-state');
+const $btnMain  = document.getElementById('btn-main');
+const $btnMute  = document.getElementById('btn-mute');
+const $dot      = document.getElementById('dot');
+const $hdrSt    = document.getElementById('hdr-status');
+const $sessSt   = document.getElementById('sess-strip');
+const $sessId   = document.getElementById('sess-id');
+const $overlay  = document.getElementById('overlay');
+const $typing   = document.getElementById('typing');
+const $trans    = document.getElementById('transcript');
+const $empty    = document.getElementById('empty');
+const $toast    = document.getElementById('toast');
+const $volBar   = document.getElementById('vol-bar');
+const $botAudio = document.getElementById('bot-audio');
+
+// ─── Utils ─────────────────────────────────────────────────
+const ts  = () => new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+const esc = s  => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function setStatus(cls, label) {
+  $dot.className    = 'dot ' + cls;
+  $hdrSt.textContent = label;
+}
+function setOrb(mode) {
+  $orb.className    = 'orb ' + mode;
+  $waves.className  = 'waves' + (mode ? ' on' : '');
+  $orbState.textContent = {
+    '':        'WartinLabs AI Assistant',
+    'hearing': 'Listening to you…',
+    'talking': 'Aria is speaking…',
+  }[mode] ?? 'Processing…';
+}
+function addMsg(role, text) {
+  if ($empty.parentNode) $empty.remove();
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.innerHTML = `
+    <div class="avatar">${role==='bot'?'🤖':'🧑'}</div>
+    <div class="msg-body">
+      <span class="msg-role">${role==='bot'?'Aria · WartinLabs':'You'}</span>
+      <div class="bubble">${esc(text)}</div>
+      <span class="msg-time">${ts()}</span>
+    </div>`;
+  $trans.appendChild(div);
+  $trans.scrollTop = $trans.scrollHeight;
+}
+
+// ─── Volume meter using Web Audio API ──────────────────────
+function startVolumeMeter(stream) {
+  try {
+    audioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+    analyser  = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    const src = audioCtx.createMediaStreamSource(stream);
+    src.connect(analyser);
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+    volTimer = setInterval(() => {
+      analyser.getByteFrequencyData(buf);
+      const avg = buf.reduce((a,b) => a+b, 0) / buf.length;
+      $volBar.style.width = Math.min(100, avg * 3) + '%';
+    }, 80);
+  } catch(e) { console.warn('Volume meter failed:', e); }
+}
+function stopVolumeMeter() {
+  if (volTimer) { clearInterval(volTimer); volTimer = null; }
+  if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  $volBar.style.width = '0%';
+}
+
+// ─── Subscribe to bot audio track ──────────────────────────
+function subscribeBotAudio() {
+  try {
+    const parts  = call.participants();
+    const botPt  = Object.values(parts).find(p => !p.local);
+    if (!botPt) { console.warn('Bot not found yet'); return; }
+
+    const track = botPt.tracks?.audio?.persistentTrack
+               ?? botPt.tracks?.audio?.track
+               ?? botPt.audioTrack;
+
+    if (!track) { console.warn('Bot audio track not available yet'); return; }
+
+    const stream        = new MediaStream([track]);
+    $botAudio.srcObject = stream;
+    $botAudio.volume    = 1.0;
+    $botAudio.muted     = false;
+    $botAudio.play().then(() => {
+      console.log('✅ Bot audio playing');
+    }).catch(e => console.warn('Audio play failed:', e));
+  } catch(e) { console.warn('subscribeBotAudio error:', e); }
+}
+
+// ─── Session ────────────────────────────────────────────────
+async function toggleSession() {
+  connected ? await endSession() : await startSession();
+}
+
+async function startSession() {
+  $overlay.classList.add('on');
+  $btnMain.disabled = true;
+
+  try {
+    const res  = await fetch(`${API}/start-session`, {method:'POST'});
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+
+    sessionId = data.session_id;
+    $sessId.textContent = sessionId;
+    $sessSt.classList.add('on');
+
+    openWS(sessionId);
+
+    // ── Create Daily call object ────────────────────────────
+    call = DailyIframe.createCallObject({
+      subscribeToTracksAutomatically: true,   // KEY: auto-subscribe to bot audio
+      audioSource: true,
+      videoSource: false,
+    });
+
+    // ── Daily event handlers ────────────────────────────────
+    call.on('joined-meeting', async (e) => {
+      console.log('joined-meeting', e);
+      $overlay.classList.remove('on');
+      connected     = true;
+      $btnMain.innerHTML = '<span>⏹</span> End Session';
+      $btnMain.classList.add('stop');
+      $btnMain.disabled  = false;
+      $btnMute.disabled  = false;
+      setStatus('live', 'Connected');
+      setOrb('hearing');
+
+      // Start volume meter on local mic
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+        startVolumeMeter(stream);
+      } catch(e) {}
+    });
+
+    // Bot joins → subscribe to its audio immediately
+    call.on('participant-joined', (e) => {
+      console.log('participant-joined', e.participant.user_name);
+      if (!e.participant.local) {
+        setTimeout(subscribeBotAudio, 500);  // slight delay for track readiness
+      }
+    });
+
+    // Track becomes available/updated → re-subscribe
+    call.on('track-started', (e) => {
+      console.log('track-started', e.track.kind, 'local:', e.participant?.local);
+      if (!e.participant?.local && e.track.kind === 'audio') {
+        const stream        = new MediaStream([e.track]);
+        $botAudio.srcObject = stream;
+        $botAudio.volume    = 1.0;
+        $botAudio.muted     = false;
+        $botAudio.play().then(() => console.log('✅ track-started audio playing'))
+                        .catch(err => console.warn('play error:', err));
+      }
+    });
+
+    call.on('participant-updated', (e) => {
+      if (e?.participant && !e.participant.local) {
+        const state = e.participant.tracks?.audio?.state;
+        if (state === 'playable') subscribeBotAudio();
+      }
+    });
+
+    call.on('left-meeting',  () => cleanup());
+    call.on('error',         (e) => { console.error('Daily error:', e); cleanup(); });
+
+    // ── Join ────────────────────────────────────────────────
+    console.log('Joining room:', data.room_url);
+    await call.join({url: data.room_url, token: data.token});
+
+  } catch(err) {
+    console.error('startSession error:', err);
+    $overlay.classList.remove('on');
+    $btnMain.disabled = false;
+    setStatus('', 'Error – retry');
+    addMsg('bot', '⚠️ Connection failed. Make sure the server is running and all API keys are set in .env');
+  }
+}
+
+async function endSession() {
+  if (call) {
+    try { await call.leave(); } catch(_){}
+    call.destroy();
+    call = null;
+  }
+  if (sessionId) {
+    try { await fetch(`${API}/end-session/${sessionId}`, {method:'POST'}); } catch(_){}
+  }
+  cleanup();
+}
+
+function cleanup() {
+  connected = false; muted = false;
+  stopVolumeMeter();
+  $botAudio.srcObject = null;
+  $btnMain.innerHTML  = '<span>🎙</span> Start Voice Chat';
+  $btnMain.classList.remove('stop');
+  $btnMain.disabled   = false;
+  $btnMute.disabled   = true;
+  $btnMute.classList.remove('muted');
+  document.getElementById('mute-icon').textContent  = '🎤';
+  document.getElementById('mute-label').textContent = 'Mute Microphone';
+  $sessSt.classList.remove('on');
+  setStatus('', 'Ready');
+  setOrb('');
+  if (ws) { ws.close(); ws = null; }
+}
+
+// ─── Mute ───────────────────────────────────────────────────
+function toggleMute() {
+  if (!call) return;
+  muted = !muted;
+  call.setLocalAudio(!muted);
+  $btnMute.classList.toggle('muted', muted);
+  document.getElementById('mute-icon').textContent  = muted ? '🔇' : '🎤';
+  document.getElementById('mute-label').textContent = muted ? 'Unmute Microphone' : 'Mute Microphone';
+}
+
+// ─── WebSocket ──────────────────────────────────────────────
+function openWS(sid) {
+  ws = new WebSocket(`${WSS}/ws/${sid}`);
+  ws.onopen    = () => setInterval(() => ws?.readyState===1 && ws.send('ping'), 20000);
+  ws.onmessage = e => {
+    try {
+      const {type, data} = JSON.parse(e.data);
+      if (type === 'pong') return;
+      handleEvent(type, data);
+    } catch(_){}
+  };
+}
+
+function handleEvent(type, data) {
+  if (type === 'user_text') {
+    $typing.classList.add('on');
+    addMsg('user', data.text);
+    setOrb('hearing');
+  } else if (type === 'bot_text') {
+    $typing.classList.remove('on');
+    addMsg('bot', data.text);
+  } else if (type === 'bot_speaking_start') {
+    $typing.classList.remove('on');
+    setOrb('talking');
+  } else if (type === 'bot_speaking_end') {
+    if (connected) setOrb('hearing');
+  } else if (type === 'lead_captured') {
+    $toast.classList.add('show');
+    setTimeout(() => $toast.classList.remove('show'), 5000);
+  } else if (type === 'session_ended') {
+    addMsg('bot', '👋 Session ended. Have a great day!');
+    setTimeout(() => endSession(), 1500);
+  }
+
+}
+
+// ─── Clear ──────────────────────────────────────────────────
+function clearChat() {
+  $trans.innerHTML = '';
+  if (!connected) $trans.appendChild($empty);
+}
+</script>
+</body>
+</html>
