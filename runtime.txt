@@ -1,0 +1,2 @@
+onnxruntime==1.20.1
+pipecat-ai[daily,deepgram,groq,silero]==0.0.77
