@@ -4,11 +4,11 @@
 # ============================================================
 
 # --- Pipecat core + extras (Linux native wheels available) ---
-pipecat-ai[daily,deepgram,silero,groq]==0.0.77
+pipecat-ai[daily,deepgram,groq]==0.0.77
 # --- RAG: local vector search (no cloud needed) ---
 sentence-transformers>=3.0.0,<4.0.0
 faiss-cpu>=1.8.0,<2.0.0
-numpy>=1.26.0,<2.0.0
+numpy>=1.26.4
 
 # --- Server ---
 fastapi>=0.111.0,<1.0.0
