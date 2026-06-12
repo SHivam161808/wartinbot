@@ -3,7 +3,7 @@ WartinLabs Voice Agent – FastAPI Server
 ────────────────────────────────────────
 • POST /start-session  → create Daily room, spawn bot, return room_url + token
 • POST /end-session/{id}
-• WS   /ws/{id}        → real-time transcript events to the frontend
+• WS   /ws/{id}        → real-time transcript events + incoming frontend messages
 • GET  /               → serves frontend/index.html (static)
 """
 
@@ -44,9 +44,12 @@ app.add_middleware(
 ws_clients:  Dict[str, WebSocket]    = {}
 bot_tasks:   Dict[str, asyncio.Task] = {}
 
+# Import the global interceptor registry from bot
+from bot import bot_interceptors
+
 
 # ─────────────────────────────────────────────────────────────
-# WebSocket – real-time transcript feed
+# WebSocket – real-time transcript feed + incoming frontend events
 # ─────────────────────────────────────────────────────────────
 @app.websocket("/ws/{session_id}")
 async def ws_endpoint(websocket: WebSocket, session_id: str):
@@ -56,8 +59,27 @@ async def ws_endpoint(websocket: WebSocket, session_id: str):
     try:
         while True:
             msg = await websocket.receive_text()
+            # Ping/pong keepalive
             if msg == "ping":
                 await websocket.send_text("pong")
+                continue
+
+            # Attempt to parse JSON message (frontend events)
+            try:
+                data = json.loads(msg)
+                msg_type = data.get("type")
+                # Forward calendar events to the bot interceptor
+                if msg_type in ("date_selected", "time_selected"):
+                    interceptor = bot_interceptors.get(session_id)
+                    if interceptor:
+                        await interceptor.handle_frontend_message(msg_type, data)
+                        logger.info(f"Forwarded {msg_type} to bot interceptor")
+                    else:
+                        logger.warning(f"No interceptor found for session {session_id}")
+                else:
+                    logger.debug(f"Ignoring unknown frontend message type: {msg_type}")
+            except json.JSONDecodeError:
+                logger.warning(f"Received non-JSON WebSocket message: {msg[:100]}")
     except WebSocketDisconnect:
         pass
     finally:
@@ -67,7 +89,7 @@ async def ws_endpoint(websocket: WebSocket, session_id: str):
 
 async def _emit(event: str, data: dict):
     sid = data.get("session_id", "")
-    ws  = ws_clients.get(sid)
+    ws = ws_clients.get(sid)
     if ws:
         try:
             await ws.send_text(json.dumps({"type": event, "data": data}))
@@ -158,8 +180,10 @@ async def end_session(session_id: str):
         task.cancel()
     ws = ws_clients.pop(session_id, None)
     if ws:
-        try: await ws.close()
-        except Exception: pass
+        try:
+            await ws.close()
+        except Exception:
+            pass
     return {"status": "ended", "session_id": session_id}
 
 
